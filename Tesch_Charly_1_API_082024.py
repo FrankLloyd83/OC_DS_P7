@@ -59,9 +59,3 @@ async def predict(request: PredictionRequest):
     features = np.array(request.features).reshape(1, -1)
     prediction = model.predict(features)
     return {"prediction": prediction.tolist()}
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="127.0.0.1", port=8000)
