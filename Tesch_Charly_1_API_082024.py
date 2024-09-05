@@ -46,7 +46,7 @@ class PredictionRequest(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"Salut": "Théo"}
+    return {"L'API": "est en ligne"}
 
 
 @app.get("/favicon.ico", include_in_schema=False)
