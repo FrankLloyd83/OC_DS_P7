@@ -5,3 +5,5 @@ azure-storage-blob
 numpy
 pydantic
 xgboost
+pytest
+httpx
