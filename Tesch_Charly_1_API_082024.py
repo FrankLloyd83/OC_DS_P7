@@ -7,6 +7,7 @@ from typing import List
 from azure.storage.blob import BlobServiceClient
 import tempfile
 import os
+import shap
 
 app = FastAPI()
 
@@ -63,4 +64,15 @@ async def predict(request: PredictionRequest):
     model = get_model(temp_dir)
     features = np.array(request.features).reshape(1, -1)
     prediction = model.predict(features)
-    return {"prediction": prediction.tolist()}
+    probas = model.predict_proba(features)
+
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(features)
+
+    top_10_features = np.argsort(np.abs(shap_values[0]))[::-1][:10]
+    important_shap_values = shap_values[0][top_10_features].tolist()
+    return {
+        "prediction": int(prediction[0]),
+        "proba": float(probas[0, 1]),
+        "top_10_features": important_shap_values,
+    }
