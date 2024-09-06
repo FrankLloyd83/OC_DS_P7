@@ -7,3 +7,4 @@ pydantic
 xgboost
 pytest
 httpx
+shap
