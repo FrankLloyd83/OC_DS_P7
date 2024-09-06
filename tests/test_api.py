@@ -26,26 +26,50 @@ def test_read_root():
 def test_favicon():
     response = client.get("/favicon.ico")
     assert response.status_code == 200
-    assert response.headers["content-type"] in ["image/x-icon", "image/vnd.microsoft.icon"]
+    assert response.headers["content-type"] in [
+        "image/x-icon",
+        "image/vnd.microsoft.icon",
+    ]
 
 
 # Mock de la méthode download_container_to_tempdir pour éviter les appels réels à Azure
 @patch("Tesch_Charly_1_API_082024.download_container_to_tempdir")
 @patch("Tesch_Charly_1_API_082024.get_model")
-def test_predict(mock_get_model, mock_download_container_to_tempdir):
+@patch("Tesch_Charly_1_API_082024.shap.TreeExplainer")
+def test_predict(
+    mock_tree_explainer, mock_get_model, mock_download_container_to_tempdir
+):
     # Simuler un répertoire temporaire
     mock_download_container_to_tempdir.return_value = "/fake/tempdir"
 
     # Simuler un modèle XGBoost chargé
     mock_model = MagicMock()
     mock_model.predict.return_value = np.array([1])
+    mock_model.predict_proba.return_value = np.array([[0.1, 0.9]])
     mock_get_model.return_value = mock_model
+
+    # Simuler des valeurs SHAP
+    mock_explainer = MagicMock()
+    mock_explainer.shap_values.return_value = np.array([[0.15, -0.4, 0.3, 0.2, -0.1]])
+    mock_tree_explainer.return_value = mock_explainer
 
     # Effectuer la requête POST avec des features fictives
     response = client.post("/predict", json={"features": [0.1, 0.2, 0.3, 0.4, 0.5]})
 
     assert response.status_code == 200
-    assert response.json() == {"prediction": [1]}
+    # Vérifier le contenu de la réponse
+    expected_response = {
+        "prediction": 1,
+        "proba": 0.9,  # Probabilité de non-remboursement
+        "top_10_features": [
+            -0.4,
+            0.3,
+            0.2,
+            0.15,
+            -0.1,
+        ],  # Valeurs SHAP triées (indices top 10)
+    }
+    assert response.json() == expected_response
 
     # Vérifie que le modèle et le répertoire temporaire ont été utilisés
     mock_download_container_to_tempdir.assert_called_once_with("model-xgboost-default")
