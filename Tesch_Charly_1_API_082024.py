@@ -24,7 +24,8 @@ def get_container_client(container_name: str):
     return container_client
 
 
-def download_container_to_tempdir(container_client):
+def download_container_to_tempdir(container_name: str) -> str:
+    container_client = get_container_client(container_name)
     temp_dir = tempfile.mkdtemp()
     blobs_list = container_client.list_blobs()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pkl") as temp_file:
