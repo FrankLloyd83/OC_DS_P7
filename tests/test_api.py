@@ -26,7 +26,7 @@ def test_read_root():
 def test_favicon():
     response = client.get("/favicon.ico")
     assert response.status_code == 200
-    assert response.headers["content-type"] == "image/x-icon"
+    assert response.headers["content-type"] in ["image/x-icon", "image/vnd.microsoft.icon"]
 
 
 # Mock de la méthode download_container_to_tempdir pour éviter les appels réels à Azure
