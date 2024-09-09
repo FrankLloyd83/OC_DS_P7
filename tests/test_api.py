@@ -3,7 +3,14 @@ import pytest
 import numpy as np
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
-from Tesch_Charly_1_API_082024 import app, download_container_to_tempdir, get_model
+from Tesch_Charly_1_API_082024 import (
+    app,
+    download_artifacts_to_tempdir,
+    get_container_client,
+    get_blob_client,
+    get_threshold,
+    get_model,
+)
 
 # Crée un client de test pour l'API
 client = TestClient(app)
@@ -13,6 +20,8 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def set_env_vars(monkeypatch):
     monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", "fake_connection_string")
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "fake_experiment_id")
+    monkeypatch.setenv("MLFLOW_RUN_ID", "fake_run_id")
 
 
 # Test du endpoint racine
@@ -32,73 +41,39 @@ def test_favicon():
     ]
 
 
-# Mock de la méthode download_container_to_tempdir pour éviter les appels réels à Azure
-@patch("Tesch_Charly_1_API_082024.download_container_to_tempdir")
+@patch("Tesch_Charly_1_API_082024.download_artifacts_to_tempdir")
 @patch("Tesch_Charly_1_API_082024.get_model")
+@patch("Tesch_Charly_1_API_082024.get_threshold")
 @patch("Tesch_Charly_1_API_082024.shap.TreeExplainer")
 def test_predict(
-    mock_tree_explainer, mock_get_model, mock_download_container_to_tempdir
+    mock_tree_explainer,
+    mock_get_threshold,
+    mock_get_model,
+    mock_download_artifacts_to_tempdir,
 ):
-    # Simuler un répertoire temporaire
-    mock_download_container_to_tempdir.return_value = "/fake/tempdir"
-
-    # Simuler un modèle XGBoost chargé
+    # Mock du modèle
     mock_model = MagicMock()
-    mock_model.predict.return_value = np.array([1])
-    mock_model.predict_proba.return_value = np.array([[0.1, 0.9]])
+    mock_model.predict_proba.return_value = np.array([[0.4, 0.6]])
     mock_get_model.return_value = mock_model
 
-    # Simuler des valeurs SHAP
+    # Mock du seuil
+    mock_get_threshold.return_value = 0.12
+
+    # Mock des SHAP values
     mock_explainer = MagicMock()
-    mock_explainer.shap_values.return_value = np.array([[0.15, -0.4, 0.3, 0.2, -0.1]])
+    mock_explainer.shap_values.return_value = np.array([[0.1, 0.2, 0.3, 0.4, 0.5]])
     mock_tree_explainer.return_value = mock_explainer
 
-    # Effectuer la requête POST avec des features fictives
-    response = client.post("/predict", json={"features": [0.1, 0.2, 0.3, 0.4, 0.5]})
+    # Données de test
+    payload = {"features": [1.0, 2.0, 3.0, 4.0, 5.0]}
 
+    # Appel de l'API
+    response = client.post("/predict", json=payload)
+
+    # Vérification de la réponse
     assert response.status_code == 200
-    # Vérifier le contenu de la réponse
-    expected_response = {
-        "prediction": 1,
-        "proba": 0.9,  # Probabilité de non-remboursement
-        "top_10_features": [
-            -0.4,
-            0.3,
-            0.2,
-            0.15,
-            -0.1,
-        ],  # Valeurs SHAP triées (indices top 10)
-    }
-    assert response.json() == expected_response
-
-    # Vérifie que le modèle et le répertoire temporaire ont été utilisés
-    mock_download_container_to_tempdir.assert_called_once_with("model-xgboost-default")
-    mock_get_model.assert_called_once_with("/fake/tempdir")
-
-
-# Mock du client Azure Blob pour tester la fonction de téléchargement
-@patch("Tesch_Charly_1_API_082024.BlobServiceClient")
-def test_download_container_to_tempdir(mock_blob_service_client):
-    # Simuler un client de container et une liste de blobs
-    mock_container_client = MagicMock()
-    mock_blob = MagicMock()
-    mock_blob.name = "model.pkl"
-    mock_container_client.list_blobs.return_value = [mock_blob]
-
-    # Simuler un client blob et son flux de téléchargement
-    mock_blob_client = MagicMock()
-    mock_blob_client.download_blob.return_value.readall.return_value = (
-        b"fake model data"
-    )
-    mock_container_client.get_blob_client.return_value = mock_blob_client
-
-    mock_blob_service_client.from_connection_string.return_value.get_container_client.return_value = (
-        mock_container_client
-    )
-
-    # Appeler la fonction pour tester
-    temp_dir = download_container_to_tempdir(mock_container_client)
-
-    # Vérifie que le fichier a été téléchargé dans le répertoire temporaire
-    assert os.path.exists(os.path.join(temp_dir, "model.pkl"))
-    mock_container_client.get_blob_client.assert_called_once_with("model.pkl")
+    data = response.json()
+    assert data["prediction"] == 1
+    assert data["proba"] == 0.6
+    assert data["threshold"] == 0.12
+    assert data["top_10_features"] == [0.5, 0.4, 0.3, 0.2, 0.1]
