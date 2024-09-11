@@ -88,19 +88,11 @@ async def predict(request: PredictionRequest):
     prediction = (probas[:, 1] > threshold).astype(int)
 
     explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(features)
-
-    top_10_features = np.argsort(np.abs(shap_values[0]))[::-1][:10]
-    important_shap_values = shap_values[0][top_10_features].tolist()
-
-    print("prediction", prediction, type(prediction))
-    print("probas", probas, type(probas))
-    print("threshold", threshold, type(threshold))
-    print("top_10_features", important_shap_values, type(important_shap_values))
+    shap_values = explainer.shap_values(features)[0].tolist()
 
     return {
         "prediction": int(prediction[0]),
         "proba": float(probas[0, 1]),
         "threshold": threshold,
-        "top_10_features": important_shap_values,
+        "shap_values": shap_values,
     }
