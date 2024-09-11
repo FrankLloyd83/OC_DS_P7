@@ -76,4 +76,4 @@ def test_predict(
     assert data["prediction"] == 1
     assert data["proba"] == 0.6
     assert data["threshold"] == 0.12
-    assert data["top_10_features"] == [0.5, 0.4, 0.3, 0.2, 0.1]
+    assert data["shap_values"] == [0.1, 0.2, 0.3, 0.4, 0.5]
