@@ -53,8 +53,9 @@ def test_predict(
 ):
     # Mock du modèle
     mock_model = MagicMock()
-    mock_model.predict_proba.return_value = np.array([[0.4, 0.6]])
-    mock_get_model.return_value = mock_model
+    mock_pipeline = MagicMock()
+    mock_pipeline.predict_proba.return_value = np.array([[0.4, 0.6]])
+    mock_get_model.return_value = mock_pipeline, mock_model
 
     # Mock du seuil
     mock_get_threshold.return_value = 0.12
