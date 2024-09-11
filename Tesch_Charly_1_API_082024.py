@@ -5,6 +5,7 @@ import mlflow.sklearn
 import numpy as np
 from typing import List
 from azure.storage.blob import BlobServiceClient
+from sklearn.pipeline import Pipeline
 import tempfile
 import os
 import shap
@@ -64,8 +65,12 @@ def get_threshold() -> float:
 
 
 def get_model(model_dir: str) -> mlflow.sklearn.Model:
-    model = mlflow.sklearn.load_model(model_dir)
-    return model
+    pipeline = mlflow.sklearn.load_model(model_dir)
+    if isinstance(pipeline, Pipeline):
+        model = pipeline.named_steps["model"]
+    else:
+        raise ValueError("The model is not a pipeline")
+    return pipeline, model
 
 
 @app.get("/")
@@ -81,10 +86,10 @@ async def favicon():
 @app.post("/predict")
 async def predict(request: PredictionRequest):
     artifacts_temp_dir = download_artifacts_to_tempdir()
-    model = get_model(artifacts_temp_dir)
+    pipeline, model = get_model(artifacts_temp_dir)
     threshold = get_threshold()
     features = np.array(request.features).reshape(1, -1)
-    probas = model.predict_proba(features)
+    probas = pipeline.predict_proba(features)
     prediction = (probas[:, 1] > threshold).astype(int)
 
     explainer = shap.TreeExplainer(model)
