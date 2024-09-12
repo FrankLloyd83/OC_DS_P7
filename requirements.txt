@@ -9,3 +9,4 @@ pytest
 httpx
 shap
 scikit-learn
+imbalanced-learn
