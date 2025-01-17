@@ -8,5 +8,5 @@ xgboost
 pytest
 httpx
 shap
-scikit-learn==1.5.1
+scikit-learn==1.5.2
 imbalanced-learn
